@@ -1,0 +1,232 @@
+﻿@page "/dashboard"
+@using MudBlazor
+@using JournalApplicaton.Entities
+@using JournalApplication.service
+@inject IJournalService JournalService
+@inject IJSRuntime JS
+@layout MainLayout
+
+<MudContainer MaxWidth="MaxWidth.Large" class="mb-6 pa-5 mt-5">
+    <!-- Header Section -->
+    <MudStack Spacing="1" Class="mb-8">
+        <MudText Typo="Typo.h3" Style="font-weight: 800; background: linear-gradient(90deg, #594ae2, #ff4081); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Dashboard</MudText>
+        <MudText Typo="Typo.body1" Style="color: black;">Your journey at a glance, from day one.</MudText>
+    </MudStack>
+
+    <!-- Stats Premium Row -->
+    <MudPaper Elevation="25" Class="pa-0 mb-10 overflow-hidden rounded-xl" Style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.05);">
+        <MudGrid Spacing="0">
+            <!-- Total Entries -->
+            <MudItem xs="6" sm="3" Class="pa-6 border-r border-b" Style="border-color: rgba(255,255,255,0.05);">
+                <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Color="Color.Primary" Size="Size.Medium" />
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: white;">@_totalEntries</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #8b8b8b; text-transform: uppercase; letter-spacing: 1px;">Entries</MudText>
+                </MudStack>
+            </MudItem>
+
+            <!-- Longest Streak -->
+            <MudItem xs="6" sm="3" Class="pa-6 border-r border-b" Style="border-color: rgba(255,255,255,0.05);">
+                <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" Size="Size.Medium" />
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: white;">@_longestStreak</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #8b8b8b; text-transform: uppercase; letter-spacing: 1px;">Longest Streak</MudText>
+                </MudStack>
+            </MudItem>
+
+            <!-- Current Streak -->
+            <MudItem xs="6" sm="3" Class="pa-6 border-r border-b" Style="border-color: rgba(255,255,255,0.05);">
+                <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.LocalFireDepartment" Color="Color.Error" Size="Size.Medium" />
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: white;">@_currentStreak</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #8b8b8b; text-transform: uppercase; letter-spacing: 1px;">Current Streak</MudText>
+                </MudStack>
+            </MudItem>
+
+            <!-- Missed Days -->
+            <MudItem xs="6" sm="3" Class="pa-6 border-b" Style="border-color: rgba(255,255,255,0.05);">
+                <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Info" Size="Size.Medium" />
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: white;">@_missedDays</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #8b8b8b; text-transform: uppercase; letter-spacing: 1px;">Missed Days</MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Charts Section -->
+    <MudGrid Spacing="4">
+        <!-- Mood Distribution (Doughnut Chart) -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="4" Class="rounded-xl h-100" Style="background: #ffffff; border: 1px solid rgba(0,0,0,0.05);">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Mood Distribution</MudText>
+                        <MudText Typo="Typo.caption" Style="color: black;">Overall emotional trend</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="moodChart"></canvas>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Tag Distribution (Pie Chart) -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="4" Class="rounded-xl h-100" Style="background: #ffffff; border: 1px solid rgba(0,0,0,0.05);">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Tag Distribution</MudText>
+                        <MudText Typo="Typo.caption" Style="color: black;">Popular hashtags in your journals</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="tagChart"></canvas>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Word Count Trend (Line Chart) -->
+        <MudItem xs="12">
+            <MudCard Elevation="4" Class="rounded-xl" Style="background: #ffffff; border: 1px solid rgba(0,0,0,0.05);">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Word Count Trend</MudText>
+                        <MudText Typo="Typo.caption" Style="color: black;">Consistency over last 30 entries</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="wordCountChart"></canvas>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .border-r { border-right: 1px solid; }
+    .border-b { border-bottom: 1px solid; }
+    @@media (max-width: 600px) {
+        .border-r { border-right: none; }
+    }
+</style>
+
+@code {
+    private int _totalEntries;
+    private int _longestStreak;
+    private int _currentStreak;
+    private int _missedDays;
+    private Dictionary<string, int> _moodCounts = new();
+    private Dictionary<string, int> _tagCounts = new();
+    private List<Journal> _allJournals = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var result = await JournalService.GetAllJournalsAsync(1, 10000);
+        _allJournals = result.Journals;
+        _totalEntries = result.TotalCount;
+
+        if (_allJournals != null && _allJournals.Any())
+        {
+            CalculateStats();
+        }
+    }
+
+    private void CalculateStats()
+    {
+        var dates = _allJournals.Select(j => j.CreateAT.Date).Distinct().OrderByDescending(d => d).ToList();
+        
+        // Current Streak
+        int current = 0;
+        DateTime checkDate = DateTime.Today;
+        if (!dates.Contains(checkDate)) checkDate = checkDate.AddDays(-1);
+
+        while (dates.Contains(checkDate))
+        {
+            current++;
+            checkDate = checkDate.AddDays(-1);
+        }
+        _currentStreak = current;
+
+        // Longest Streak
+        int longest = 0;
+        int currentRun = 0;
+        var ascendingDates = dates.OrderBy(d => d).ToList();
+        for (int i = 0; i < ascendingDates.Count; i++)
+        {
+            if (i > 0 && ascendingDates[i] == ascendingDates[i - 1].AddDays(1)) currentRun++;
+            else currentRun = 1;
+            longest = Math.Max(longest, currentRun);
+        }
+        _longestStreak = longest;
+
+        // Missed Days
+        var firstDate = ascendingDates.First();
+        var daysSinceFirst = (DateTime.Today - firstDate).Days + 1;
+        _missedDays = Math.Max(0, daysSinceFirst - ascendingDates.Count);
+
+        // Mood Distribution
+        _moodCounts = _allJournals
+            .Where(j => !string.IsNullOrEmpty(j.PrimaryMood))
+            .GroupBy(j => j.PrimaryMood)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        // Tag Distribution
+        _tagCounts = _allJournals
+            .SelectMany(j => j.Tags)
+            .Where(t => !string.IsNullOrEmpty(t))
+            .GroupBy(t => t)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_allJournals != null && _allJournals.Any())
+        {
+            await InitializeCharts();
+        }
+    }
+
+    private async Task InitializeCharts()
+    {
+        try
+        {
+            // Mood Doughnut Chart
+            var moodLabels = _moodCounts.Keys.ToArray();
+            var moodValues = _moodCounts.Values.ToArray();
+            var moodColors = new[] { "#4caf50", "#2196f3", "#f44336", "#ff9800", "#9c27b0", "#795548" };
+            await JS.InvokeVoidAsync("dashboardCharts.createDoughnutChart", "moodChart", moodLabels, moodValues, moodColors);
+
+            // Tag Pie Chart
+            var tagLabels = _tagCounts.OrderByDescending(x => x.Value).Take(6).Select(x => x.Key).ToArray();
+            var tagValues = _tagCounts.OrderByDescending(x => x.Value).Take(6).Select(x => x.Value).ToArray();
+            var tagColors = new[] { "#594ae2", "#ff4081", "#00bcd4", "#ffeb3b", "#e91e63", "#607d8b" };
+            await JS.InvokeVoidAsync("dashboardCharts.createPieChart", "tagChart", tagLabels, tagValues, tagColors);
+
+            // Word Count Line Chart
+            var trendData = _allJournals.OrderBy(j => j.CreateAT)
+                .TakeLast(30)
+                .Select(j => new { Date = j.CreateAT.ToString("MMM dd"), Count = j.WordCount })
+                .ToList();
+
+            var labels = trendData.Select(x => x.Date).ToArray();
+            var data = trendData.Select(x => x.Count).ToArray();
+            await JS.InvokeVoidAsync("dashboardCharts.createLineChart", "wordCountChart", labels, data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing charts: {ex.Message}");
+        }
+    }
+}

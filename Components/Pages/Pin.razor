@@ -1,0 +1,231 @@
+﻿@page "/"
+@using Microsoft.Maui.Storage
+@using MudBlazor
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudThemeProvider Theme="_myCustomTheme" IsDarkMode="_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height:100vh; flex-direction:column; gap:16px;">
+
+    <MudPaper Elevation="6" Class="pa-6" Style="width:100%; max-width:400px; border-radius: 16px;">
+
+        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Style="font-weight: 700;">
+            @Title
+        </MudText>
+
+        @if (!isLoaded)
+        {
+            <MudProgressCircular Indeterminate="true" Class="mx-auto d-block mt-4" />
+        }
+        else
+        {
+            @if (isChangingPin)
+            {
+                <MudTextField @bind-Value="oldPin"
+                              Label="Current PIN"
+                              InputType="InputType.Password"
+                              MaxLength="4"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-3" />
+
+                <MudTextField @bind-Value="pin"
+                              Label="New PIN"
+                              InputType="InputType.Password"
+                              MaxLength="4"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-3" />
+
+                <MudTextField @bind-Value="confirmPin"
+                              Label="Confirm New PIN"
+                              InputType="InputType.Password"
+                              MaxLength="4"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-3" />
+                
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="HandleChangePin"
+                           Class="mt-2">
+                    Update PIN
+                </MudButton>
+
+                <MudButton FullWidth="true"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           OnClick="@(() => { isChangingPin = false; ClearFields(); })"
+                           Class="mt-2">
+                    Back to Login
+                </MudButton>
+            }
+            else
+            {
+                <MudTextField @bind-Value="pin"
+                              Label="PIN"
+                              InputType="InputType.Password"
+                              MaxLength="4"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-3" />
+
+                @if (isSetupMode)
+                {
+                    <MudTextField @bind-Value="confirmPin"
+                                  Label="Confirm PIN"
+                                  InputType="InputType.Password"
+                                  MaxLength="4"
+                                  Required="true"
+                                  Immediate="true"
+                                  Class="mb-3" />
+                }
+
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="HandlePin">
+                    @ButtonText
+                </MudButton>
+
+                @if (!isSetupMode)
+                {
+                    <MudButton FullWidth="true"
+                               Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               OnClick="@(() => { isChangingPin = true; ClearFields(); })"
+                               Class="mt-2">
+                        Change PIN
+                    </MudButton>
+                }
+            }
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3">
+                    @error
+                </MudAlert>
+            }
+        }
+    </MudPaper>
+
+    <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" 
+                   OnClick="ToggleTheme" 
+                   Color="Color.Inherit" />
+
+</MudContainer>
+
+@code {
+    private const string PinKey = "app_pin";
+
+    private string pin = string.Empty;
+    private string oldPin = string.Empty;
+    private string confirmPin = string.Empty;
+    private string error = string.Empty;
+
+    private bool isSetupMode;
+    private bool isChangingPin;
+    private bool isLoaded;
+
+    private bool _isDarkMode = false;
+
+    private string Title => isSetupMode ? "Set Your PIN" : (isChangingPin ? "Change Your PIN" : "Enter PIN");
+    private string ButtonText => isSetupMode ? "Save PIN" : "Unlock";
+
+    private MudTheme _myCustomTheme = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("localStorage.getItem", "theme");
+        _isDarkMode = theme == "dark";
+
+        var savedPin = await SecureStorage.GetAsync(PinKey);
+        isSetupMode = string.IsNullOrWhiteSpace(savedPin);
+        isLoaded = true;
+    }
+
+    private async Task ToggleTheme()
+    {
+        _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync("localStorage.setItem", "theme", _isDarkMode ? "dark" : "light");
+    }
+
+    private void ClearFields()
+    {
+        pin = string.Empty;
+        confirmPin = string.Empty;
+        oldPin = string.Empty;
+        error = string.Empty;
+    }
+
+    private async Task HandlePin()
+    {
+        error = string.Empty;
+
+        if (pin.Length != 4 || !pin.All(char.IsDigit))
+        {
+            error = "PIN must be exactly 4 digits.";
+            return;
+        }
+
+        if (isSetupMode)
+        {
+            if (pin != confirmPin)
+            {
+                error = "PINs do not match.";
+                return;
+            }
+
+            await SecureStorage.SetAsync(PinKey, pin);
+            Snackbar.Add("PIN set successfully!", Severity.Success);
+            isSetupMode = false;
+            ClearFields();
+        }
+        else
+        {
+            var savedPin = await SecureStorage.GetAsync(PinKey);
+            if (pin != savedPin)
+            {
+                error = "Incorrect PIN.";
+                return;
+            }
+
+            Navigation.NavigateTo("/dashboard", true);
+        }
+    }
+
+    private async Task HandleChangePin()
+    {
+        error = string.Empty;
+        var savedPin = await SecureStorage.GetAsync(PinKey);
+
+        if (oldPin != savedPin)
+        {
+            error = "Current PIN is incorrect.";
+            return;
+        }
+
+        if (pin.Length != 4 || !pin.All(char.IsDigit))
+        {
+            error = "New PIN must be exactly 4 digits.";
+            return;
+        }
+
+        if (pin != confirmPin)
+        {
+            error = "New PINs do not match.";
+            return;
+        }
+
+        await SecureStorage.SetAsync(PinKey, pin);
+        Snackbar.Add("PIN changed successfully!", Severity.Success);
+        isChangingPin = false;
+        ClearFields();
+    }
+}

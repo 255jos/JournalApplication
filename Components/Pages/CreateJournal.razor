@@ -1,0 +1,270 @@
+﻿@page "/create-journal"
+@page "/edit-journal/{Id:int}"
+@layout MainLayout
+
+@using MudBlazor
+@using JournalApplication.service
+@using JournalApplicaton.Entities
+@inject IJSRuntime JS
+@inject IJournalService JournalService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudPaper Class="pa-6 mud-elevation-4">
+
+        @if (_loading)
+        {
+            <div class="text-center">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            <MudText Typo="Typo.h5" Class="mb-4">
+                @(IsEditMode ? "Edit Journal" : "Create Journal")
+            </MudText>
+
+            <MudForm @ref="_form">
+
+                <MudTextField @bind-Value="_model.Title"
+                              Label="Title"
+                              Required="true"
+                              RequiredError="Title is required"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Description</MudText>
+                <div id="@EditorId" class="quill-container mb-4"></div>
+
+                <MudGrid Gutter="3">
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="string"
+                                   Label="Primary Mood"
+                                   Required="true"
+                                   RequiredError="Primary mood is required"
+                                   Value="_model.PrimaryMood"
+                                   ValueChanged="OnPrimaryMoodChanged"
+                                   Variant="Variant.Outlined">
+                            @foreach (var category in PrimaryMoodCategories)
+                            {
+                                <MudSelectItem Value="@category">@category</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="string"
+                                   Label="Secondary Moods (max 2)"
+                                   MultiSelection="true"
+                                   Disabled="@string.IsNullOrEmpty(_model.PrimaryMood)"
+                                   SelectedValues="_secondaryMoods"
+                                   SelectedValuesChanged="OnSecondaryMoodsChanged"
+                                   Variant="Variant.Outlined">
+                            @foreach (var mood in AvailableSecondaryMoods)
+                            {
+                                <MudSelectItem Value="@mood">@mood</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <MudSelect T="string"
+                           Label="Tags (Optional)"
+                           MultiSelection="true"
+                           SelectedValues="_selectedTags"
+                           SelectedValuesChanged="OnTagsChanged"
+                           AllowCustomValues="true"
+                           CustomValueAllowed="true"
+                           CustomValue="OnCustomTagAdded"
+                           Variant="Variant.Outlined"
+                           Class="mt-4">
+                    @foreach (var tag in PredefinedTags)
+                    {
+                        <MudSelectItem Value="@tag">@tag</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudText Typo="Typo.caption" Class="text-danger mt-1">@formMessage</MudText>
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-6">
+                    <MudButton Color="Color.Default" Variant="Variant.Outlined" OnClick="Cancel">
+                        Cancel
+                    </MudButton>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">
+                        @(IsEditMode ? "Update" : "Save")
+                    </MudButton>
+                </MudStack>
+
+            </MudForm>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery] public long? Date { get; set; }
+    private bool IsEditMode => Id.HasValue;
+
+    private bool _loading = true;
+    private MudForm? _form;
+    private JournalModel _model = new();
+    private HashSet<string> _secondaryMoods = new();
+    private HashSet<string> _selectedTags = new();
+
+    private string EditorId = $"quill-editor-{Guid.NewGuid()}";
+    private string formMessage = "";
+
+    private string[] PrimaryMoodCategories = { "Positive", "Neutral", "Negative" };
+
+    private Dictionary<string, string[]> SecondaryMoodMap = new()
+    {
+        ["Positive"] = new[] { "Happy", "Excited", "Relaxed", "Grateful", "Confident" },
+        ["Neutral"] = new[] { "Calm", "Thoughtful", "Curious", "Nostalgic", "Bored" },
+        ["Negative"] = new[] { "Sad", "Angry", "Stressed", "Lonely", "Anxious" }
+    };
+
+    private string[] PredefinedTags =
+        { "Work","Career","Studies","Family","Friends","Health","Fitness","Hobbies","Travel","Finance","Spirituality","Birthday","Holiday","Exercise","Reading","Writing","Cooking","Meditation","Yoga","Music","Shopping" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            // Edit Mode (Load existing)
+            var journal = await JournalService.GetJournalByIdAsync(Id.Value);
+            if (journal != null)
+            {
+                _model = new JournalModel
+                {
+                    Title = journal.Title,
+                    Description = journal.Desciption,
+                    PrimaryMood = journal.PrimaryMood,
+                    SecondaryMoods = journal.SecondaryMoods ?? new List<string>(),
+                    Tags = journal.Tags ?? new List<string>(),
+                    CreateAT = journal.CreateAT
+                };
+                // ... (helpers)
+                // Initialize UI mood helpers
+                if (_model.SecondaryMoods.Any()) _secondaryMoods = _model.SecondaryMoods.ToHashSet();
+                if (_model.Tags.Any()) _selectedTags = _model.Tags.ToHashSet();
+            }
+            else
+            {
+                Snackbar.Add("Journal not found", Severity.Error);
+                Navigation.NavigateTo("/journals");
+            }
+        }
+        else if (Date.HasValue)
+        {
+            // Create Mode with specific Date
+            _model.CreateAT = new DateTime(Date.Value);
+        }
+        
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initQuill", EditorId);
+            if (!string.IsNullOrEmpty(_model.Description))
+                await JS.InvokeVoidAsync("setQuillHtml", EditorId, _model.Description);
+        }
+    }
+
+    private IEnumerable<string> AvailableSecondaryMoods =>
+        !string.IsNullOrEmpty(_model.PrimaryMood) && SecondaryMoodMap.ContainsKey(_model.PrimaryMood)
+            ? SecondaryMoodMap[_model.PrimaryMood]
+            : Enumerable.Empty<string>();
+
+    private void OnPrimaryMoodChanged(string value)
+    {
+        _model.PrimaryMood = value;
+        _secondaryMoods.Clear();
+        _model.SecondaryMoods.Clear();
+    }
+
+    private void OnSecondaryMoodsChanged(IEnumerable<string> moods)
+    {
+        var list = moods.TakeLast(2).ToHashSet();
+        _secondaryMoods = list;
+        _model.SecondaryMoods = list.ToList();
+    }
+
+    private void OnTagsChanged(IEnumerable<string> tags)
+    {
+        _selectedTags = tags.ToHashSet();
+        _model.Tags = _selectedTags.ToList();
+    }
+
+    private void OnCustomTagAdded(string tag)
+    {
+        tag = tag.Trim();
+        if (string.IsNullOrWhiteSpace(tag)) return;
+
+        _selectedTags.Add(tag);
+        if (!PredefinedTags.Contains(tag))
+            PredefinedTags = PredefinedTags.Append(tag).ToArray();
+
+        _model.Tags = _selectedTags.ToList();
+    }
+
+    private async Task Save()
+    {
+        await _form!.Validate();
+        if (!_form.IsValid) return;
+
+        _model.Description = await JS.InvokeAsync<string>("getQuillHtml", EditorId);
+        
+        // Create the entity
+        var journal = new Journal
+        {
+            Title = _model.Title,
+            Desciption = _model.Description, // Mapped to Desciption
+            PrimaryMood = _model.PrimaryMood,
+            SecondaryMoods = _model.SecondaryMoods,
+            Tags = _model.Tags,
+            CreateAT = _model.CreateAT ?? DateTime.Now // Use existing date if editing, else now
+        };
+
+        var result = await JournalService.AddOrUpdateJournalAsync(journal);
+        
+        if (result.Success)
+        {
+            Snackbar.Add("Journal saved successfully!", Severity.Success);
+            Navigation.NavigateTo("/journals");
+        }
+        else
+        {
+            formMessage = result.ErrorMessage ?? "Error saving journal";
+            Snackbar.Add(formMessage, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/journals");
+    }
+
+    private class JournalModel
+    {
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string PrimaryMood { get; set; } = "";
+        public List<string> SecondaryMoods { get; set; } = new();
+        public List<string> Tags { get; set; } = new();
+        public DateTime? CreateAT { get; set; }
+    }
+}
+
+<style>
+    .quill-container {
+        height: 200px;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+    }
+</style>
+s

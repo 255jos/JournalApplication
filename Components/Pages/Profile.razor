@@ -1,0 +1,60 @@
+﻿@page "/settings/profile"
+@using MudBlazor
+@layout MainLayout
+
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-5 mt-5">
+
+    <MudStack Spacing="3" Class="mb-4">
+        <MudText Typo="Typo.h4">Profile</MudText>
+        <MudText Typo="Typo.body2" Style="color: black;">
+            Update your personal information
+        </MudText>
+    </MudStack>
+
+    <MudCard Elevation="1">
+        <MudCardContent Class="pa-6">
+
+            <MudStack Spacing="3">
+
+                <MudTextField Label="Username"
+                              Variant="Variant.Outlined"
+                              @bind-Value="_username"
+                              HelperText="Your display name"
+                              FullWidth />
+
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save">
+                        Save Changes
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="Reset">
+                        Reset
+                    </MudButton>
+                </MudStack>
+
+            </MudStack>
+
+        </MudCardContent>
+    </MudCard>
+
+</MudContainer>
+
+@code {
+    private string _username = "";
+
+    protected override Task OnInitializedAsync()
+    {
+        _username = "John Doe"; // TODO: load from service
+        return Task.CompletedTask;
+    }
+
+    private void Reset()
+    {
+        _username = "John Doe";
+    }
+}

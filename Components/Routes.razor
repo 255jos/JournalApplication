@@ -1,0 +1,31 @@
+﻿@inject NavigationManager Navigation
+
+<Router AppAssembly="@typeof(MauiProgram).Assembly">
+    <Found Context="routeData">
+        <!-- No default layout here -->
+        <RouteView RouteData="@routeData" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+
+    <NotFound>
+        <!-- Use layout only for NotFound page -->
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <PageTitle>Not found</PageTitle>
+            <div class="p-4 text-center">
+                <h1>Page not found</h1>
+                <p>Sorry, there's nothing at this address.</p>
+                <MudButton OnClick="@GoDashboard"
+                           Variant="Variant.Filled">
+                    Go Dashboard
+                </MudButton>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private void GoDashboard()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+}

@@ -1,0 +1,204 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<MudThemeProvider Theme="_myCustomTheme" IsDarkMode="_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+
+    <!-- ===================== DRAWER ===================== -->
+    <MudDrawer @bind-Open="_drawerOpen"
+               Variant="DrawerVariant.Mini"
+               MiniVariantWidth="72px"
+               Elevation="1">
+
+        <!-- User -->
+        <MudPaper Class="mx-2 pa-3 my-2" Elevation="0">
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <MudAvatar Icon="@Icons.Material.Filled.Person"
+                           Size="Size.Medium"
+                           Color="Color.Primary" />
+                @if (_drawerOpen)
+                {
+                    <MudText Typo="Typo.subtitle2">
+                        @_currentUsername.ToUpper()
+                    </MudText>
+                }
+            </MudStack>
+        </MudPaper>
+
+
+        <!-- ===================== NAVIGATION ===================== -->
+        <MudNavMenu>
+
+            @foreach (var item in _navItems)
+            {
+                <MudNavLink Href="@item.Href"
+                            Match="@item.Match"
+                            Icon="@item.Icon">
+                    @if (_drawerOpen)
+                    {
+                        <MudText Typo="Typo.body2">@item.Title</MudText>
+                    } 
+                </MudNavLink>
+            }
+
+            <!-- Settings Group -->
+            <MudNavGroup Title="@(_drawerOpen ? "Settings" : null)"
+                         Icon="@Icons.Material.Filled.Settings">
+
+                @foreach (var item in _settingsNavItems)
+                {
+                    <MudNavLink Href="@item.Href" Icon="@item.Icon">
+                        @if (_drawerOpen)
+                        {
+                            <MudText Typo="Typo.body2">@item.Title</MudText>
+                        }
+                    </MudNavLink>
+                }
+
+            </MudNavGroup>
+
+        </MudNavMenu>
+
+        <MudSpacer />
+
+        @if (_drawerOpen)
+        {
+            <MudPaper Class="pa-2 text-center" Elevation="0">
+                <MudText Typo="Typo.caption">
+                    © @DateTime.Now.Year Journal App
+                </MudText>
+            </MudPaper>
+        }
+
+    </MudDrawer>
+
+    <!-- ===================== APP BAR ===================== -->
+    <MudAppBar Elevation="2">
+
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="GoBack" />
+
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                       OnClick="GoForward" />
+
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       OnClick="ToggleDrawer" />
+
+        <MudText Class="ml-3" Typo="Typo.subtitle2">
+            @DateTime.Now.ToString("dddd, dd MMM yyyy")
+        </MudText>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@(_isDarkMode
+                                       ? Icons.Material.Filled.DarkMode
+                                       : Icons.Material.Filled.LightMode)"
+                       OnClick="ToggleTheme" />
+
+        <MudMenu>
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text"
+                           EndIcon="@Icons.Material.Filled.KeyboardArrowDown">
+                    @_currentUsername
+                </MudButton>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem OnClick="Logout">
+                    <MudText Color="Color.Error">Logout</MudText>
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+
+    </MudAppBar>
+
+    <!-- ===================== BODY ===================== -->
+    <MudMainContent Class="pa-5">
+        @Body
+    </MudMainContent>
+
+</MudLayout>
+
+@code {
+
+    /* ===================== STATE ===================== */
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+    private string _currentUsername = "Joshna Chhetri";
+
+    /* ===================== NAV MODELS ===================== */
+    public class NavItem
+    {
+        public string Title { get; set; } = "";
+        public string Href { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public NavLinkMatch Match { get; set; } = NavLinkMatch.All;
+    }
+
+    /* ===================== NAV LIST ===================== */
+    private List<NavItem> _navItems = new()
+    {
+        new NavItem
+        {
+            Title = "Dashboard",
+            Href = "/dashboard",
+            Icon = Icons.Material.Filled.Dashboard
+        },
+        new NavItem
+        {
+            Title = "Journals",
+            Href = "/journals",
+            Icon = Icons.Material.Filled.MenuBook,
+            Match = NavLinkMatch.Prefix
+        },
+        new NavItem
+        {
+            Title = "Calendar",
+            Href = "/calendar",
+            Icon = Icons.Material.Filled.CalendarMonth
+        }
+    };
+
+    private List<NavItem> _settingsNavItems = new()
+    {
+        new NavItem
+        {
+            Title = "Security",
+            Href = "/settings/security",
+            Icon = Icons.Material.Filled.Security
+        },
+    };
+
+    /* ===================== METHODS ===================== */
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private async Task ToggleTheme()
+    {
+        _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync(
+            "localStorage.setItem",
+            "theme",
+            _isDarkMode ? "dark" : "light");
+    }
+
+    private async Task GoBack() =>
+        await JS.InvokeVoidAsync("history.back");
+
+    private async Task GoForward() =>
+        await JS.InvokeVoidAsync("history.forward");
+
+    private void NavigateToCreateEntry() =>
+        Navigation.NavigateTo("/create-entry");
+
+    private void Logout() =>
+        Navigation.NavigateTo("/", true);
+
+    /* ===================== THEME ===================== */
+    private MudTheme _myCustomTheme = new();
+}
+s

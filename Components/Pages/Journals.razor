@@ -1,0 +1,358 @@
+﻿@page "/journals"
+@using MudBlazor
+@using JournalApplication.service
+@using JournalApplicaton.Entities
+@layout MainLayout
+@inject IJournalService JournalService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+
+<MudContainer MaxWidth="MaxWidth.Large" class="mb-6 pa-5 mt-5">
+    <!-- Page Header -->
+    <MudStack Spacing="3" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <div>
+                <MudText Typo="Typo.h4" GutterBottom="true">Journals</MudText>
+                <MudText Typo="Typo.body2" Style="color: black;">
+                    Manage and explore your journal entries
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary"
+                      Href="/create-journal"
+                      StartIcon="@Icons.Material.Filled.Add"
+                      Size="Size.Large">
+                New Entry
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    <!-- Filters Section -->
+    <MudCard Elevation="1" Class="mb-6">
+        <MudCardContent>
+            <MudStack Spacing="3">
+                <!-- Date Range Filter -->
+                <MudStack Row="true" Spacing="2">
+                    <MudDatePicker Label="From" Variant="Variant.Outlined" @bind-Date="_fromDate" MaxDate="DateTime.Today" />
+                    <MudDatePicker Label="To" Variant="Variant.Outlined" @bind-Date="_toDate" MaxDate="DateTime.Today" />
+                </MudStack>
+
+                <!-- Mood Filter -->
+                <MudStack Row="true" Spacing="2">
+                    <MudSelect T="string" 
+                               Label="Mood"
+                               Variant="Variant.Outlined" 
+                               @bind-Value="_selectedMood"
+                               Class="flex-grow-1">
+                        <MudSelectItem Value="@("")">All Moods</MudSelectItem>
+                        <MudSelectItem Value="@("Positive")">Positive</MudSelectItem>
+                        <MudSelectItem Value="@("Neutral")">Neutral</MudSelectItem>
+                        <MudSelectItem Value="@("Negative")">Negative</MudSelectItem>
+                    </MudSelect>
+
+                    <!-- Tag Filter -->
+                    <MudSelect T="string" 
+                               Label="Tag"
+                               Variant="Variant.Outlined"
+                               @bind-Value="_selectedTag"
+                               Class="flex-grow-1">
+                         <MudSelectItem Value="@("")">All Tags</MudSelectItem>      
+                        @foreach (var tag in _availableTags)
+                        {
+                            <MudSelectItem Value="@tag">@tag</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+
+                <!-- Filter Buttons -->
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary"
+                              StartIcon="@Icons.Material.Filled.Search"
+                              OnClick="LoadJournals">
+                        Apply Filters
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                              Color="Color.Default"
+                              StartIcon="@Icons.Material.Filled.Clear"
+                              OnClick="ClearFilters">
+                        Clear
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Journals Table -->
+    <MudCard Elevation="1" Class="mb-6">
+        <MudCardContent>
+            <MudTable Items="@_journals" 
+                     Hover="true" 
+                     Striped="true"
+                     Dense="false"
+                     CurrentPage="_currentPage"
+                     RowsPerPage="_pageSize"
+                     OnRowClick="@((TableRowClickEventArgs<Journal> args) => HandleRowClick(args))"
+                     Class="mud-table-custom">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">
+                        Journal Entries (@_totalCount)
+                    </MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" 
+                                 Placeholder="Search by title or content..." 
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Search"
+                                 IconSize="Size.Medium"
+                                 Class="mt-0" 
+                                 TextChanged="OnSearchTextChanged" />
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Title</MudTh>
+                    <MudTh>Mood</MudTh>
+                    <MudTh>Tags</MudTh>
+                    <MudTh Style="text-align:center">Word Count</MudTh>
+                    <MudTh Style="text-align:center">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Date">
+                        <MudText Typo="Typo.body2">
+                            @context.CreateAT.ToString("MMM dd, yyyy")
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Title">
+                        <MudText Typo="Typo.subtitle2">
+                            @context.Title
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Mood">
+                        <MudChip T="string" Size="Size.Small" 
+                                Color="@GetMoodColor(context.PrimaryMood)"
+                                Variant="Variant.Text">
+                            @context.PrimaryMood
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Tags">
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                            @foreach (var tag in context.Tags.Take(2))
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
+                                    @tag
+                                </MudChip>
+                            }
+                            @if (context.Tags.Count > 2)
+                            {
+                                <MudText Typo="Typo.caption" Style="color: black;">
+                                    +@(context.Tags.Count - 2)
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Word Count" Style="text-align:center">
+                        <MudText Typo="Typo.body2">
+                            @context.WordCount
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Actions" Style="text-align:center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                      Size="Size.Small"
+                                      Color="Color.Info"
+                                      OnClick="@((e) => ViewEntry(context.JournalId))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                      Size="Size.Small"
+                                      Color="Color.Warning"
+                                      OnClick="@((e) => EditEntry(context.JournalId))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                      Size="Size.Small"
+                                      Color="Color.Error"
+                                      OnClick="@((e) => DeleteEntry(context))" />
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[]{5, 10, 25, 50}" />
+                </PagerContent>
+            </MudTable>
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Export Section -->
+    <MudCard Elevation="1">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">Export Journals</MudText>
+                <MudText Typo="Typo.body2" Style="color: black;">
+                    Export your journal entries as PDF
+                </MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid Spacing="3">
+                <!-- Export Options -->
+                <MudItem xs="12" md="6">
+                    <MudStack Spacing="3">
+                        <MudText Typo="Typo.subtitle2">Select Date Range</MudText>
+                        
+                        <MudDatePicker Label="From" 
+                                      Variant="Variant.Outlined"
+                                      @bind-Date="_exportFromDate" 
+                                      MaxDate="DateTime.Today" />
+                        
+                        <MudDatePicker Label="To"
+                                      Variant="Variant.Outlined"
+                                      @bind-Date="_exportToDate" 
+                                      MaxDate="DateTime.Today" />
+
+                        <MudButton Variant="Variant.Filled"
+                                  Color="Color.Success"
+                                  StartIcon="@Icons.Material.Filled.FileDownload"
+                                  FullWidth="true"
+                                  Size="Size.Large"
+                                  OnClick="ExportPdf">
+                            Export as PDF
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    // Search and Filtering
+    private string _searchString = "";
+    private int _currentPage = 0;
+    private int _pageSize = 10;
+    private int _totalCount = 0;
+    
+    // Filters
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private string _selectedMood = "";
+    private string _selectedTag = "";
+
+
+    // Export
+    private DateTime? _exportFromDate = DateTime.Today.AddDays(-30);
+    private DateTime? _exportToDate = DateTime.Today;
+
+    // Data
+    private List<Journal> _journals = new();
+    
+    private string[] _availableTags = { "Work","Career","Studies","Family","Friends","Health","Fitness","Hobbies","Travel","Finance","Spirituality","Birthday","Holiday","Exercise","Reading","Writing","Cooking","Meditation","Yoga","Music","Shopping" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadJournals();
+    }
+    
+    private async Task OnSearchTextChanged(string text)
+    {
+        await LoadJournals();
+    }
+
+    private async Task LoadJournals()
+    {
+        try
+        {
+            // Note: _currentPage is handled by MudTable Pager client-side for simple list. 
+            // If we use server-side pagination, we would pass page number.
+            // For now, load first 100 for simplicity or implement pagination properly.
+            // SearchJournalsAsync returns (List<Journal>, int totalCount)
+            
+            var result = await JournalService.SearchJournalsAsync(0, _searchString, _selectedMood, _selectedTag, _fromDate, _toDate, 1, 100);
+            _journals = result.Item1;
+            _totalCount = result.Item2;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading journals: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ClearFilters()
+    {
+        _searchString = "";
+        _fromDate = null;
+        _toDate = null;
+        _selectedMood = "";
+        _selectedTag = "";
+        await LoadJournals();
+    }
+
+    private void HandleRowClick(TableRowClickEventArgs<Journal> args)
+    {
+        ViewEntry(args.Item.JournalId);
+    }
+
+    private void ViewEntry(int id)
+    {
+        Navigation.NavigateTo($"/journal-detail/{id}");
+    }
+
+    private void EditEntry(int id)
+    {
+        Navigation.NavigateTo($"/edit-journal/{id}");
+    }
+
+    private async Task DeleteEntry(Journal journal)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Delete Journal", 
+            "Are you sure you want to delete this journal entry?", 
+            yesText:"Delete", cancelText:"Cancel");
+            
+        if (confirmed == true)
+        {
+            try
+            {
+                await JournalService.DeleteJournalAsync(journal.CreateAT);
+                Snackbar.Add("Journal deleted", Severity.Success);
+                await LoadJournals();
+            }
+            catch(Exception ex)
+            {
+                Snackbar.Add($"Error deleting journal: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+    
+    private async Task ExportPdf()
+    {
+        if (_exportFromDate == null || _exportToDate == null)
+        {
+             Snackbar.Add("Please select a date range", Severity.Warning);
+             return;
+        }
+        
+        try
+        {
+            var pdfBytes = await JournalService.GenerateJournalPdfAsync(_exportFromDate.Value, _exportToDate.Value);
+            
+            if (pdfBytes != null && pdfBytes.Length > 0)
+            {
+                var fileName = $"Journal_Export_{_exportFromDate.Value:yyyyMMdd}_{_exportToDate.Value:yyyyMMdd}.pdf";
+                
+                // Use JS Interop to trigger the download
+                await JS.InvokeVoidAsync("fileHelper.downloadFile", fileName, pdfBytes);
+                
+                Snackbar.Add("PDF Exported successfully!", Severity.Success);
+            }
+        }
+        catch(Exception ex)
+        {
+            Snackbar.Add($"Error exporting PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetMoodColor(string mood) => mood switch
+    {
+        "Happy" or "Excited" or "Grateful" or "Relaxed" => Color.Success,
+        "Calm" or "Thoughtful" or "Curious" => Color.Info,
+        "Sad" or "Angry" or "Stressed" => Color.Error,
+        _ => Color.Default
+    };
+}

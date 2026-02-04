@@ -1,0 +1,138 @@
+﻿@page "/journal-detail/{Id:int}"
+@layout MainLayout
+
+@using MudBlazor
+@using JournalApplication.service
+@using JournalApplicaton.Entities
+@inject IJournalService JournalService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16 pt-4">
+    @if (_loading)
+    {
+         <div class="text-center">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+         </div>
+    }
+    else if (_journal == null)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudText Typo="Typo.h5" Color="Color.Error">Journal Not Found</MudText>
+            <MudButton OnClick="@GoToCalendar" Class="mt-4" Variant="Variant.Filled" Color="Color.Primary">
+                Go to Calendar
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudButton OnClick="@GoToCalendar" StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text">
+                Back
+            </MudButton>
+            <MudButton OnClick="@GoToAllJournals" StartIcon="@Icons.Material.Filled.List" Variant="Variant.Text">
+                All Journals
+            </MudButton>
+        </MudStack>
+
+        <MudCard Class="pa-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                     <MudStack Spacing="1">
+                        <MudText Typo="Typo.h3" Style="font-weight: 500;">@_journal.Title</MudText>
+                        <MudText Typo="Typo.h6" Style="color: black;">
+                            @_journal.CreateAT.ToString("dddd, MMMM dd, yyyy")
+                        </MudText>
+                    </MudStack>
+                </CardHeaderContent>
+            </MudCardHeader>
+
+            <MudDivider Class="my-3" />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1">Primary Mood</MudText>
+                    <MudChip T="string" Color="Color.Primary" Size="Size.Medium">@_journal.PrimaryMood</MudChip>
+                </MudItem>
+
+                @if (_journal.SecondaryMoods != null && _journal.SecondaryMoods.Any())
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">Secondary Moods</MudText>
+                        <MudStack Row="true" Spacing="1">
+                            @foreach (var mood in _journal.SecondaryMoods)
+                            {
+                                <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@mood</MudChip>
+                            }
+                        </MudStack>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            @if (_journal.Tags != null && _journal.Tags.Any())
+            {
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Tags</MudText>
+                <MudStack Row="true" Spacing="1">
+                    @foreach (var tag in _journal.Tags)
+                    {
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">@tag</MudChip>
+                    }
+                </MudStack>
+            }
+
+            <MudDivider Class="my-3" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Description</MudText>
+            <MudPaper Class="pa-3 description-card">
+                @((MarkupString)_journal.Desciption)
+            </MudPaper>
+        </MudCard>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Journal? _journal;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _journal = await JournalService.GetJournalByIdAsync(Id);
+        }
+        catch(Exception ex)
+        {
+            Snackbar.Add($"Error loading journal: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoToCalendar()
+    {
+        Navigation.NavigateTo("/calendar");
+    }
+
+    private void GoToAllJournals()
+    {
+        Navigation.NavigateTo("/journals");
+    }
+}
+
+<style>
+    .description-card {
+        background-color: #fafafa;
+        border-radius: 8px;
+        min-height: 180px;
+    }
+
+    .mud-card:hover {
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+</style>

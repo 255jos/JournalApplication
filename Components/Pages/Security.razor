@@ -1,0 +1,157 @@
+﻿@page "/settings/security"
+@using MudBlazor
+@using Microsoft.Maui.Storage
+@layout MainLayout
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-5 mt-5">
+
+    <MudStack Spacing="3" Class="mb-4">
+        <MudText Typo="Typo.h4">Security</MudText>
+        <MudText Typo="Typo.body2" Style="color: black;">
+            Protect your journal with PIN security
+        </MudText>
+    </MudStack>
+
+    <MudCard Elevation="1">
+        <MudCardContent Class="pa-6">
+
+            <MudStack Spacing="3">
+
+                <!-- PIN STATUS -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Journal PIN Protection</MudText>
+                        <MudText Typo="Typo.body2" Style="color: black;">
+                            @(_pinSet ? "PIN is active" : "No PIN set")
+                        </MudText>
+                    </div>
+
+                    <MudChip T="string" Color="@(_pinSet ? Color.Success : Color.Warning)"
+                             Size="Size.Small"
+                             Variant="Variant.Text">
+                        @(_pinSet ? "Active" : "Not Set")
+                    </MudChip>
+                </MudStack>
+
+                <MudDivider />
+
+                @if (!_editingPin)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="@(_pinSet ? Color.Warning : Color.Success)"
+                               StartIcon="@(_pinSet ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)"
+                               OnClick="@(() => _editingPin = true)"
+                               FullWidth>
+                        @(_pinSet ? "Change PIN" : "Set PIN")
+                    </MudButton>
+                }
+                else
+                {
+                    <MudStack Spacing="2">
+
+                        @if (_pinSet)
+                        {
+                            <MudTextField Label="Current PIN"
+                                          Variant="Variant.Outlined"
+                                          InputType="InputType.Password"
+                                          MaxLength="4"
+                                          @bind-Value="_currentPin"
+                                          FullWidth />
+                        }
+
+                        <MudTextField Label="New PIN"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Password"
+                                      @bind-Value="_newPin"
+                                      MaxLength="4"
+                                      FullWidth />
+
+                        <MudTextField Label="Confirm PIN"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Password"
+                                      @bind-Value="_confirmPin"
+                                      MaxLength="4"
+                                      FullWidth />
+
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="SavePin"
+                                       StartIcon="@Icons.Material.Filled.Check">
+                                Save PIN
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Close"
+                                       OnClick="CancelPinEdit">
+                                Cancel
+                            </MudButton>
+                        </MudStack>
+
+                    </MudStack>
+                }
+
+            </MudStack>
+
+        </MudCardContent>
+    </MudCard>
+
+</MudContainer>
+
+@code {
+    private const string PinKey = "app_pin";
+    private bool _pinSet = false;
+    private bool _editingPin = false;
+
+    private string _currentPin = "";
+    private string _newPin = "";
+    private string _confirmPin = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var savedPin = await SecureStorage.GetAsync(PinKey);
+        _pinSet = !string.IsNullOrWhiteSpace(savedPin);
+    }
+
+    private async Task SavePin()
+    {
+        if (_pinSet)
+        {
+            var savedPin = await SecureStorage.GetAsync(PinKey);
+            if (_currentPin != savedPin)
+            {
+                Snackbar.Add("Current PIN is incorrect.", Severity.Error);
+                return;
+            }
+        }
+
+        if (_newPin.Length != 4 || !_newPin.All(char.IsDigit))
+        {
+            Snackbar.Add("PIN must be exactly 4 digits.", Severity.Error);
+            return;
+        }
+
+        if (_newPin != _confirmPin)
+        {
+            Snackbar.Add("New PINs do not match.", Severity.Error);
+            return;
+        }
+
+        await SecureStorage.SetAsync(PinKey, _newPin);
+        _pinSet = true;
+        _editingPin = false;
+        _currentPin = "";
+        _newPin = "";
+        _confirmPin = "";
+        Snackbar.Add("PIN updated successfully!", Severity.Success);
+    }
+
+    private void CancelPinEdit()
+    {
+        _editingPin = false;
+        _currentPin = "";
+        _newPin = "";
+        _confirmPin = "";
+    }
+}
